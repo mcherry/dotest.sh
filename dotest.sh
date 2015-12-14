@@ -16,6 +16,7 @@ do_ftp=0
 do_ssh=0
 do_ssl=0
 do_http=0
+do_mysql=0
 dns_fail=0
 dns_message=""
 openssl_opts=""
@@ -118,6 +119,10 @@ for a in $nmap_test; do
 		do_ssh="1"
 	fi
 
+	if [[ "$a" == 3306/tcp*open* ]]; then
+		do_mysql="1"
+	fi
+
 	if [[ "$a" == 80/tcp*open* ]]; then
 		do_http="1"
 	fi
@@ -147,6 +152,13 @@ if [ "$do_ssh" == "1" ]; then
 			echo "Port $a $ssh_test"
 		fi
 	done
+	echo
+fi
+
+if [ "$do_mysql" == "1" ]; then
+	echo "MySQL Verification:"
+	mysql_test=`echo|timeout 5 nc $host_name 3306|tail -n1`
+	echo "$mysql_test"
 	echo
 fi
 
