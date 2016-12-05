@@ -10,3 +10,4 @@ nmap
 mtr
 openssl
 traceroute
+html2text
