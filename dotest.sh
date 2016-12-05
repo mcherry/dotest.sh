@@ -1,9 +1,9 @@
 #!/bin/bash
-# Simple test script to inspect a host and verify various protocols
 #
-# Written by Mike Cherry <mcherry@inditech.org>
-# Verify IP code from Mitch Frazier (Linux Journal)
-# http://www.linuxjournal.com/content/validating-ip-address-bash-script
+# Simple test script to inspect a host and see if it's up or working
+#
+# Mostly written by Mike Cherry <mcherry@inditech.org>
+# With random code borrowed from the tubes
 
 if [ "$1" == "" ]; then
 	echo "Usage: $0 <ipaddress || hostname>"
@@ -16,7 +16,7 @@ do_ftp=0
 do_ssh=0
 do_ssl=0
 do_http=0
-do_mysql=0
+do_vnc=0
 dns_fail=0
 dns_message=""
 openssl_opts=""
@@ -59,6 +59,7 @@ if ! valid_ip $1; then
 else
 	ip_address="$1"
 	host_name=`host $ip_address|head -n1|awk '{print $5}'|sed -e 's/\.$//'`
+
 	ip_test=`host $host_name|head -n1|awk '{print $5}'|sed -e 's/\.$//'`
 
 	if [ "$ip_test" == "3(NXDOMAIN)" ]; then
@@ -111,6 +112,10 @@ for a in $nmap_test; do
 		do_ssh="1"
 	fi
 
+	if [[ "$a" == 222/tcp*open* ]]; then
+		do_ssh="1"
+	fi
+
 	if [[ "$a" == 2222/tcp*open* ]]; then
 		do_ssh="1"
 	fi
@@ -119,16 +124,24 @@ for a in $nmap_test; do
 		do_ssh="1"
 	fi
 
-	if [[ "$a" == 3306/tcp*open* ]]; then
-		do_mysql="1"
-	fi
-
 	if [[ "$a" == 80/tcp*open* ]]; then
 		do_http="1"
 	fi
 
 	if [[ "$a" == 443/tcp*open* ]]; then
 		do_ssl="1"
+	fi
+
+	if [[ "$a" == 5900/tcp*open* ]]; then
+		do_vnc="1"
+	fi
+
+	if [[ "$a" == 5901/tcp*open* ]]; then
+		do_vnc="1"
+	fi
+
+	if [[ "$a" == 5902/tcp*open* ]]; then
+		do_vnc="1"
 	fi
 
 	echo $a;
@@ -144,7 +157,7 @@ fi
 IFS=$' '
 
 if [ "$do_ssh" == "1" ]; then
-	ssh_ports="22 2022 2222"
+	ssh_ports="22 222 2022 2222"
 	echo "SSH Verification:"
 	for a in $ssh_ports; do
 		ssh_test=`echo |timeout 5 nc $host_name $a 2> /dev/null|grep -v mismatch`
@@ -155,21 +168,35 @@ if [ "$do_ssh" == "1" ]; then
 	echo
 fi
 
-if [ "$do_mysql" == "1" ]; then
-	echo "MySQL Verification:"
-	mysql_test=`echo|timeout 5 nc $host_name 3306|tail -n1`
-	echo "$mysql_test"
-	echo
-fi
-
 if [ "$do_http" == "1" ]; then
 	http_headers=`timeout 5 curl -s -I -L http://$host_name`
+	http_content=`timeout 30 curl -s -L -X GET http://$host_name | html2text`
+
 	if [ ! "$http_headers" == "" ]; then
 		echo "HTTP headers:"
 		echo "$http_headers"
 		echo
 	fi
+
+	if [ ! "$http_content" == "" ]; then
+		echo "HTTP content:"
+		echo "$http_content"
+		echo
+	fi
 fi
+
+if [ "$do_vnc" == "1" ]; then
+	vnc_ports="5900 5901 5902"
+	echo "VNC Verification:"
+	for a in $vnc_ports; do
+		vnc_test=`echo |timeout 5 nc $host_name $a 2> /dev/null`
+		if [[ $vnc_test == RFB* ]]; then
+			echo "Port $a $vnc_test"
+		fi
+	done
+	echo
+fi
+
 
 if [ "$do_ssl" == "1" ]; then
 	echo "SSL Verification:"
